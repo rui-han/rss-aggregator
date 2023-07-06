@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,16 +10,38 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
+	"github.com/rui-han/rss-aggregator/internal/database"
+
+	_ "github.com/lib/pq"
 )
+
+// store shared data that HTTP handlers need access to
+type apiConfig struct {
+	DB *database.Queries
+}
 
 func main() {
 	godotenv.Load()
-	portString := os.Getenv("PORT")
 
+	portString := os.Getenv("PORT")
 	if portString == "" {
-		log.Fatal("PORT is not found")
+		log.Fatal("PORT is not found in the environment")
 	}
 	fmt.Println("PORT: ", portString)
+
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL is not found in the environment")
+	}
+
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Cannot connect to database: ", err)
+	}
+
+	apiCfg := apiConfig{
+		DB: database.New(conn),
+	}
 
 	router := chi.NewRouter()
 
@@ -33,9 +56,9 @@ func main() {
 	}))
 
 	v1Router := chi.NewRouter()
-	// only fire on GET requests
-	v1Router.Get("/healthz", HandlerReadiness)
-	v1Router.Get("/err", HandlerError)
+	v1Router.Get("/healthz", handlerReadiness)
+	v1Router.Get("/err", handlerError)
+	v1Router.Post("/users", apiCfg.handlerCreateUser)
 	router.Mount("/v1", v1Router)
 
 	server := &http.Server{
@@ -44,7 +67,7 @@ func main() {
 	}
 
 	log.Printf("Server is running on port: %v", portString)
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
