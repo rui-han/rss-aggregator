@@ -64,9 +64,9 @@ func scrapeFeed(db *database.Queries, waitGroup *sync.WaitGroup, feed database.F
 			description.Valid = true
 		}
 		// parse the published at date
-		pubAt := sql.NullTime{}
+		publishedAt := sql.NullTime{}
 		if t, err := time.Parse(time.RFC1123Z, item.PubDate); err == nil {
-			pubAt = sql.NullTime{
+			publishedAt = sql.NullTime{
 				Time:  t,
 				Valid: true,
 			}
@@ -79,7 +79,7 @@ func scrapeFeed(db *database.Queries, waitGroup *sync.WaitGroup, feed database.F
 				UpdatedAt:   time.Now().UTC(),
 				Title:       item.Title,
 				Description: description,
-				PublishedAt: pubAt,
+				PublishedAt: publishedAt,
 				Url:         item.Link,
 				FeedID:      feed.ID,
 			})
